@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCreateBlockNote, SuggestionMenuController, getDefaultReactSlashMenuItems } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/core/fonts/inter.css";
@@ -8,6 +8,7 @@ import "@blocknote/mantine/style.css";
 import { supabase } from "../lib/supabaseClient";
 import type { Page } from "./usePages";
 import IconPicker from "./IconPicker";
+import TableOfContents, { extractHeadings } from "./TableOfContents";
 
 export default function Editor({
   pageId,
@@ -25,6 +26,7 @@ export default function Editor({
   const page = pages.find((p) => p.id === pageId);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [headings, setHeadings] = useState<ReturnType<typeof extractHeadings>>([]);
 
   const uploadFile = async (file: File) => {
     const ext = file.name.split(".").pop() || "png";
@@ -48,7 +50,14 @@ export default function Editor({
     uploadFile,
   });
 
+  // Recompute the heading outline whenever the page changes
+  useEffect(() => {
+    setHeadings(extractHeadings(editor.document));
+  }, [pageId]);
+
   const handleChange = () => {
+    setHeadings(extractHeadings(editor.document));
+
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(async () => {
       const { error } = await supabase
@@ -103,19 +112,23 @@ export default function Editor({
   );
 
   return (
-    <div style={{ position: "relative" }}>
-      {showIconPicker && (
-        <div style={{ position: "absolute", top: 0, left: 0, zIndex: 50 }}>
-          <IconPicker onSelect={insertIcon} onClose={() => setShowIconPicker(false)} />
-        </div>
-      )}
+    <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+      <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+        {showIconPicker && (
+          <div style={{ position: "absolute", top: 0, left: 0, zIndex: 50 }}>
+            <IconPicker onSelect={insertIcon} onClose={() => setShowIconPicker(false)} />
+          </div>
+        )}
 
-      <BlockNoteView editor={editor} onChange={handleChange} slashMenu={false}>
-        <SuggestionMenuController
-          triggerCharacter="/"
-          getItems={async (query) => customSlashItems(query)}
-        />
-      </BlockNoteView>
+        <BlockNoteView editor={editor} onChange={handleChange} slashMenu={false}>
+          <SuggestionMenuController
+            triggerCharacter="/"
+            getItems={async (query) => customSlashItems(query)}
+          />
+        </BlockNoteView>
+      </div>
+
+      <TableOfContents headings={headings} />
     </div>
   );
 }
