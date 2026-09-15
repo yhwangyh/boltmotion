@@ -2,46 +2,299 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
+/* ============================================================
+   DESIGN TOKENS — Notion-style palette
+   (shadcn components read these automatically via bg-background,
+   bg-popover, border, etc. — do not remove this block again,
+   removing it is what caused the transparent-popover bug)
+   ============================================================ */
+@layer base {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --background: 0 0% 100%;          /* white canvas */
+    --foreground: 45 8% 20%;          /* Notion's warm dark gray, #37352F */
+
+    --card: 0 0% 100%;
+    --card-foreground: 45 8% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 45 8% 20%;
+
+    --primary: 210 77% 51%;           /* Notion link/accent blue, #2383E2 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 60 3% 96%;
+    --secondary-foreground: 45 8% 20%;
+
+    --muted: 60 3% 96%;
+    --muted-foreground: 45 6% 45%;
+
+    --accent: 60 4% 93%;
+    --accent-foreground: 45 8% 20%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 60 4% 91%;              /* hairline border, ~#E9E9E7 */
+    --input: 60 4% 91%;
+    --ring: 210 77% 51%;
+
+    --radius: 0.5rem;                 /* Notion's soft-rounded corners */
+
+    --sidebar-bg: 40 9% 98%;          /* off-white sidebar, ~#FBFBFA */
+  }
+
+  .dark {
+    --background: 220 13% 12%;
+    --foreground: 0 0% 92%;
+
+    --card: 220 13% 14%;
+    --card-foreground: 0 0% 92%;
+
+    --popover: 220 13% 14%;
+    --popover-foreground: 0 0% 92%;
+
+    --primary: 210 77% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 10% 18%;
+    --secondary-foreground: 0 0% 92%;
+
+    --muted: 220 10% 18%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 220 10% 20%;
+    --accent-foreground: 0 0% 92%;
+
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 10% 22%;
+    --input: 220 10% 22%;
+    --ring: 210 77% 58%;
+
+    --sidebar-bg: 220 13% 10%;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-}
-.bn-editor img {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-:root {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 3.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 3.9%;
-  --border: 0 0% 89.8%;
-  --radius: 0.625rem;
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "cv11", "ss01";
+    letter-spacing: -0.011em;
+  }
 }
 
-.dark {
-  --background: 0 0% 3.9%;
-  --foreground: 0 0% 98%;
-  --popover: 0 0% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --border: 0 0% 14.9%;
+/* ============================================================
+   TYPOGRAPHY — Notion-like editor spacing
+   ============================================================ */
+.bn-editor h1,
+.bn-editor h2,
+.bn-editor h3 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-top: 1.4em;
+  margin-bottom: 0.3em;
+}
+
+.bn-editor p {
+  line-height: 1.6;
+  margin: 3px 0;
+}
+
+.bn-editor {
+  font-size: 16px;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+/* ============================================================
+   SIDEBAR / NAV
+   ============================================================ */
+aside,
+[class*="sidebar" i] {
+  background-color: hsl(var(--sidebar-bg));
+  border-right: 1px solid hsl(var(--border));
+}
+
+aside a,
+[class*="sidebar" i] a,
+aside button,
+[class*="sidebar" i] button {
+  border-radius: 6px;
+  transition: background-color 0.1s ease;
+}
+
+aside a:hover,
+[class*="sidebar" i] a:hover,
+aside button:hover,
+[class*="sidebar" i] button:hover {
+  background-color: hsl(var(--accent));
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border));
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.4);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ============================================================
+   AUTO BULLET/NUMBER FORMATTING BY NESTING DEPTH
+   1. -> a) -> ● -> ○ -> –
+   ============================================================ */
+
+[data-content-type="numberedListItem"] .bn-inline-content,
+[data-content-type="bulletListItem"] .bn-inline-content {
+  list-style: none;
+}
+
+/* Depth 0 = BlockNote's native "1." "2." numbering — left as-is */
+
+/* Depth 1: a) b) c) */
+.bn-block-group {
+  counter-reset: bn-depth1;
+}
+.bn-block-group .bn-block-group {
+  counter-reset: bn-depth2;
+}
+.bn-block-group .bn-block-group .bn-block-group {
+  counter-reset: bn-depth3;
+}
+
+.bn-block-group
+  .bn-block-outer
+  > .bn-block
+  > .bn-block-content[data-content-type="numberedListItem"],
+.bn-block-group
+  .bn-block-outer
+  > .bn-block
+  > .bn-block-content[data-content-type="bulletListItem"] {
+  counter-increment: bn-depth1;
+}
+
+.bn-block-group
+  .bn-block-outer
+  > .bn-block
+  > .bn-block-content[data-content-type="numberedListItem"]::before,
+.bn-block-group
+  .bn-block-outer
+  > .bn-block
+  > .bn-block-content[data-content-type="bulletListItem"]::before {
+  content: counter(bn-depth1, lower-alpha) ")";
+  margin-right: 6px;
+}
+
+/* Depth 2: solid dot */
+.bn-block-group .bn-block-group
+  .bn-block-outer
+  > .bn-block
+  > .bn-block-content[data-content-type="numberedListItem"]::before,
+.bn-block-group .bn-block-group
+  .bn-block-outer
+  > .bn-block
+  > .bn-block-content[data-content-type="bulletListItem"]::before {
+  content: "●";
+  margin-right: 6px;
+}
+
+/* Depth 3: hollow dot */
+.bn-block-group .bn-block-group .bn-block-group
+  .bn-block-outer
+  > .bn-block
+  > .bn-block-content[data-content-type="numberedListItem"]::before,
+.bn-block-group .bn-block-group .bn-block-group
+  .bn-block-outer
+  > .bn-block
+  > .bn-block-content[data-content-type="bulletListItem"]::before {
+  content: "○";
+  margin-right: 6px;
+}
+
+/* Depth 4+: dash */
+.bn-block-group .bn-block-group .bn-block-group .bn-block-group
+  .bn-block-outer
+  > .bn-block
+  > .bn-block-content[data-content-type="numberedListItem"]::before,
+.bn-block-group .bn-block-group .bn-block-group .bn-block-group
+  .bn-block-outer
+  > .bn-block
+  > .bn-block-content[data-content-type="bulletListItem"]::before {
+  content: "–";
+  margin-right: 6px;
+}
+
+/* ============================================================
+   REMOVE THE GRAY NESTING GUIDE LINE
+   ============================================================ */
+.bn-block-group {
+  border-left: none !important;
+  box-shadow: none !important;
+}
+
+/* ============================================================
+   FIX TRANSPARENT / OVERLAPPING POPOVERS & DROPDOWNS
+   ============================================================ */
+[data-radix-popper-content-wrapper] {
+  z-index: 50 !important;
+}
+
+[role="dialog"],
+.bn-suggestion-menu,
+[data-radix-popover-content],
+[data-radix-dropdown-menu-content] {
+  background-color: white !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+.dark [role="dialog"],
+.dark .bn-suggestion-menu,
+.dark [data-radix-popover-content],
+.dark [data-radix-dropdown-menu-content] {
+  background-color: #18181b !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ============================================================
+   TOC SIDEBAR — VISIBLE AT REST, EXPANDS ON HOVER
+   ============================================================ */
+.toc-bar {
+  width: 4px;
+  background-color: rgba(0, 0, 0, 0.15);
+  transition: width 0.15s ease, background-color 0.15s ease;
+  cursor: pointer;
+}
+
+.toc-bar:hover {
+  width: 240px;
+  background-color: white;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
+  border-left: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.dark .toc-bar {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.dark .toc-bar:hover {
+  background-color: #18181b;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
 }

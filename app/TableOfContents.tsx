@@ -90,7 +90,9 @@ export default function TableOfContents({ headings }: { headings: HeadingItem[] 
               onClick={() => scrollToHeading(h.id)}
               title={h.text}
               style={{ width: 20 - (h.level - 1) * 5, marginLeft: (h.level - 1) * 4 }}
-              className={`h-0.5 rounded-full cursor-pointer ${activeId === h.id ? "bg-blue-500" : "bg-border"}`}
+              className={`h-1 rounded-full cursor-pointer transition-colors ${
+                activeId === h.id ? "bg-blue-500" : "bg-zinc-400 dark:bg-zinc-500 hover:bg-zinc-500"
+              }`}
             />
           )
         )}
