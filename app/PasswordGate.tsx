@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabaseClient";
 
 export default function PasswordGate({ children }: { children: React.ReactNode }) {
   const [signedIn, setSignedIn] = useState(false);
+  const [userId, setUserId] = useState("");
   const [checked, setChecked] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,11 +18,13 @@ export default function PasswordGate({ children }: { children: React.ReactNode }
 
     supabase.auth.getSession().then(({ data }) => {
       setSignedIn(!!data.session);
+      setUserId(data.session?.user.id ?? "");
       setChecked(true);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setSignedIn(!!session);
+      setUserId(session?.user.id ?? "");
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -119,7 +122,7 @@ export default function PasswordGate({ children }: { children: React.ReactNode }
       >
         Sign out
       </button>
-      {children}
+      <div key={userId}>{children}</div>
     </>
   );
 }
