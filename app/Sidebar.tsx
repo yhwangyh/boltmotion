@@ -297,7 +297,7 @@ export default function Sidebar({
       const next = fn(prev);
       if (next === prev) return prev;
       try {
-        localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next]));
+        localStorage.setItem(COLLAPSE_KEY, JSON.stringify(Array.from(next)));
       } catch {}
       return next;
     });
@@ -489,3 +489,4 @@ export default function Sidebar({
     </div>
   );
 }
+
