@@ -8,7 +8,7 @@ const EMOJI_OPTIONS = [
   "🏥", "❤️", "🫀", "👁️", "🦴", "🦷", "🩸", "💉",
   "🩹", "🩺", "🫁", "💊", "🚑", "🧬", "🌡️", "🩻",
   "🐔", "🐶", "🐱", "🐮", "🐷", "🐘", "🐒", "🦁",
-  "👨", "👩", "🧒", "👶", "🔔", "⚠️", "🚨", "🔪",
+  "👨", "👩", "🧒", "👶", "📣", "⚠️", "🚨", "🔪",
   "🟥", "🟧", "🟨", "🟩", "🟦", "🟪", "🟫", "⬛",
   "🚧", "🛑", "🔴", "🟡", "🟢", "🇲🇾", "🇸🇬", "🇻🇳",
 ];
@@ -31,6 +31,7 @@ export default function IconPicker({
           {EMOJI_OPTIONS.map((emoji) => (
             <button
               key={emoji}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 onSelect(emoji);
                 onClose();

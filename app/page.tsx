@@ -23,7 +23,7 @@ export default function Home() {
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
-  const { pages, createPage, renamePage, updateIcon, updateContent, movePage, deletePage, getPath } =
+  const { pages, error, createPage, renamePage, updateIcon, updateContent, movePage, deletePage, getPath } =
     usePages(selectedPageId, setSelectedPageId);
 
   return (
@@ -136,6 +136,27 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        {/* Error message (rename, move, delete, etc. failures) */}
+        {error && (
+          <div
+            style={{
+              position: "fixed",
+              bottom: 16,
+              right: 16,
+              zIndex: 2000,
+              background: "white",
+              border: "1px solid #ddd",
+              borderRadius: 6,
+              padding: "8px 12px",
+              fontSize: 14,
+              color: "#dc2626",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            }}
+          >
+            {error}
+          </div>
+        )}
       </div>
     </PasswordGate>
   );

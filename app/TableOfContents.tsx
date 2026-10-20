@@ -4,21 +4,30 @@ import { useEffect, useState } from "react";
 
 type HeadingItem = { id: string; text: string; level: number };
 
-function getBlockText(block: any): string {
-  if (!block?.content) return "";
-  if (Array.isArray(block.content)) return block.content.map((c: any) => c.text || "").join("");
-  return "";
+function getInlineText(content: any): string {
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((c: any) => (typeof c.text === "string" ? c.text : getInlineText(c.content)))
+    .join("");
 }
 
-export function extractHeadings(document: any[]): HeadingItem[] {
-  if (!Array.isArray(document)) return [];
-  return document
-    .filter((block) => block.type === "heading")
-    .map((block) => ({
-      id: block.id,
-      text: getBlockText(block) || "Untitled heading",
-      level: block.props?.level || 1,
-    }));
+export function extractHeadings(blocks: any[]): HeadingItem[] {
+  if (!Array.isArray(blocks)) return [];
+  const out: HeadingItem[] = [];
+  const walk = (list: any[]) => {
+    for (const block of list) {
+      if (block.type === "heading") {
+        out.push({
+          id: block.id,
+          text: getInlineText(block.content) || "Untitled heading",
+          level: block.props?.level || 1,
+        });
+      }
+      if (Array.isArray(block.children)) walk(block.children);
+    }
+  };
+  walk(blocks);
+  return out;
 }
 
 export default function TableOfContents({ headings }: { headings: HeadingItem[] }) {

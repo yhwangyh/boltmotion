@@ -11,54 +11,37 @@ export default function SubPages({
   pageId: string;
   pages: Page[];
   onSelectPage: (id: string) => void;
-  createPage: (parentId: string | null) => void;
+  createPage: (parentId: string | null) => Promise<string | undefined> | void;
 }) {
   const children = pages
     .filter((p) => p.parent_id === pageId)
     .sort((a, b) => a.position - b.position);
 
   return (
-    <div style={{ marginTop: 32, borderTop: "1px solid #eee", paddingTop: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", marginBottom: 8 }}>
-        Sub-pages
-      </div>
+    <div className="mt-8 border-t pt-4">
+      <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">Sub-pages</div>
 
       {children.length === 0 && (
-        <div style={{ fontSize: 13, color: "#aaa", marginBottom: 8 }}>No sub-pages yet.</div>
+        <div className="text-[13px] text-muted-foreground/70 mb-2">No sub-pages yet.</div>
       )}
 
       {children.map((child) => (
         <div
           key={child.id}
           onClick={() => onSelectPage(child.id)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "6px 8px",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontSize: 14,
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "#f7f7f7")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-sm hover:bg-muted/60"
         >
           <span>{child.icon || "📄"}</span>
-          <span>{child.title || "Untitled"}</span>
+          <span className="truncate">{child.title || "Untitled"}</span>
         </div>
       ))}
 
       <button
-        onClick={() => createPage(pageId)}
-        style={{
-          marginTop: 6,
-          border: "none",
-          background: "transparent",
-          color: "#888",
-          fontSize: 13,
-          cursor: "pointer",
-          padding: "4px 8px",
+        onClick={async () => {
+          const id = (await createPage(pageId)) as string | undefined;
+          if (id) onSelectPage(id);
         }}
+        className="mt-1.5 px-2 py-1 text-[13px] text-muted-foreground hover:text-foreground"
       >
         + Add sub-page
       </button>

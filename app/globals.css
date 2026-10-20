@@ -298,3 +298,21 @@ aside button:hover,
   background-color: #18181b;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
+/* ============================================================
+   NUKE ANY LEFT BORDER/OUTLINE ON EVERY BLOCKNOTE ELEMENT
+   (broader net than the earlier .bn-block-group-only fix)
+   ============================================================ */
+   .bn-editor *,
+   .bn-container * {
+     outline: none !important;
+   }
+   
+   .bn-block-outer,
+   .bn-block-outer *,
+   .bn-block,
+   .bn-block-content,
+   .ProseMirror,
+   .ProseMirror * {
+     border-left: none !important;
+     box-shadow: none !important;
+   }

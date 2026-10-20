@@ -1,37 +1,43 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const APP_PASSWORD = "650723"; // change this to whatever you want
-const STORAGE_KEY = "motion_unlocked";
+import { supabase } from "../lib/supabaseClient";
 
 export default function PasswordGate({ children }: { children: React.ReactNode }) {
-  const [unlocked, setUnlocked] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
   const [checked, setChecked] = useState(false);
-  const [input, setInput] = useState("");
-  const [error, setError] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEY) === "true") {
-      setUnlocked(true);
-    }
-    setChecked(true);
+    // Remove the old client-side password flag
+    localStorage.removeItem("motion_unlocked");
+
+    supabase.auth.getSession().then(({ data }) => {
+      setSignedIn(!!data.session);
+      setChecked(true);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(!!session);
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (input === APP_PASSWORD) {
-      localStorage.setItem(STORAGE_KEY, "true");
-      setUnlocked(true);
-      setError(false);
-    } else {
-      setError(true);
-    }
+    setBusy(true);
+    setError("");
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setBusy(false);
+    if (error) setError("Incorrect email or password.");
   };
 
   if (!checked) return null;
 
-  if (!unlocked) {
+  if (!signedIn) {
     return (
       <div
         style={{
@@ -42,20 +48,27 @@ export default function PasswordGate({ children }: { children: React.ReactNode }
           fontFamily: "sans-serif",
         }}
       >
-        <form
-          onSubmit={handleSubmit}
-          style={{ display: "flex", flexDirection: "column", gap: 12, width: 260 }}
-        >
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12, width: 260 }}>
           <div style={{ fontSize: 18, fontWeight: 600, textAlign: "center", marginBottom: 8 }}>
             Project Motion
           </div>
           <input
-            type="password"
+            type="email"
             autoFocus
-            value={input}
+            value={email}
             onChange={(e) => {
-              setInput(e.target.value);
-              setError(false);
+              setEmail(e.target.value);
+              setError("");
+            }}
+            placeholder="Email"
+            style={{ padding: "8px 10px", fontSize: 14, border: "1px solid #ccc", borderRadius: 6, outline: "none" }}
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setError("");
             }}
             placeholder="Password"
             style={{
@@ -66,13 +79,10 @@ export default function PasswordGate({ children }: { children: React.ReactNode }
               outline: "none",
             }}
           />
-          {error && (
-            <div style={{ color: "#c66", fontSize: 12, textAlign: "center" }}>
-              Incorrect password.
-            </div>
-          )}
+          {error && <div style={{ color: "#c66", fontSize: 12, textAlign: "center" }}>{error}</div>}
           <button
             type="submit"
+            disabled={busy}
             style={{
               padding: "8px 10px",
               fontSize: 14,
@@ -80,15 +90,36 @@ export default function PasswordGate({ children }: { children: React.ReactNode }
               borderRadius: 6,
               background: "#333",
               color: "white",
-              cursor: "pointer",
+              cursor: busy ? "default" : "pointer",
+              opacity: busy ? 0.6 : 1,
             }}
           >
-            Unlock
+            {busy ? "Signing in..." : "Sign in"}
           </button>
         </form>
       </div>
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <button
+        onClick={() => supabase.auth.signOut()}
+        style={{
+          position: "fixed",
+          top: 8,
+          right: 12,
+          zIndex: 300,
+          border: "none",
+          background: "transparent",
+          color: "#888",
+          fontSize: 12,
+          cursor: "pointer",
+        }}
+      >
+        Sign out
+      </button>
+      {children}
+    </>
+  );
 }

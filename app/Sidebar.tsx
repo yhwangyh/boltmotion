@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, ChevronRight, ChevronDown, FileText } from "lucide-react";
+import { Plus, ChevronRight, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,10 +9,17 @@ import type { Page } from "./usePages";
 import { searchPages } from "./searchUtils";
 
 type DropZone = "above" | "below" | "child" | null;
+type CreatePage = (parentId: string | null) => Promise<string | undefined> | void;
 
 function isDescendant(pages: Page[], parentId: string, targetId: string): boolean {
   const kids = pages.filter((p) => p.parent_id === parentId);
   return kids.some((k) => k.id === targetId || isDescendant(pages, k.id, targetId));
+}
+
+function getZone(e: React.DragEvent): Exclude<DropZone, null> {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const ratio = (e.clientY - rect.top) / rect.height;
+  return ratio < 0.25 ? "above" : ratio > 0.75 ? "below" : "child";
 }
 
 function SidebarItem({
@@ -23,78 +30,105 @@ function SidebarItem({
   onSelectPage,
   createPage,
   renamePage,
-  updateIcon,
   movePage,
   draggedId,
   setDraggedId,
   onContextMenu,
+  collapsedIds,
+  toggleCollapsed,
+  expand,
+  renamingId,
+  setRenamingId,
 }: {
   page: Page;
   pages: Page[];
   depth: number;
   selectedPageId: string | null;
   onSelectPage: (id: string) => void;
-  createPage: (parentId: string | null) => void;
+  createPage: CreatePage;
   renamePage: (id: string, title: string) => void;
-  updateIcon: (id: string, icon: string) => void;
   movePage: (id: string, newParentId: string | null, newPosition: number) => void;
   draggedId: string | null;
   setDraggedId: (id: string | null) => void;
   onContextMenu: (e: React.MouseEvent, pageId: string) => void;
+  collapsedIds: Set<string>;
+  toggleCollapsed: (id: string) => void;
+  expand: (id: string) => void;
+  renamingId: string | null;
+  setRenamingId: (id: string | null) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
-  const [editing, setEditing] = useState(false);
   const [titleInput, setTitleInput] = useState(page.title);
   const [dropZone, setDropZone] = useState<DropZone>(null);
+  const doneRef = useRef(false);
+
+  const editing = renamingId === page.id;
+  const expanded = !collapsedIds.has(page.id);
+  const isSelected = selectedPageId === page.id;
 
   const children = pages
     .filter((p) => p.parent_id === page.id)
     .sort((a, b) => a.position - b.position);
 
-  const isSelected = selectedPageId === page.id;
+  // Always start editing from the current title
+  useEffect(() => {
+    if (editing) {
+      setTitleInput(page.title);
+      doneRef.current = false;
+    }
+  }, [editing]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const commitTitle = () => {
-    setEditing(false);
+  const finishEditing = (save: boolean) => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    setRenamingId(null);
+    if (!save) return;
     const trimmed = titleInput.trim() || "Untitled";
     if (trimmed !== page.title) renamePage(page.id, trimmed);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = (e.clientY - rect.top) / rect.height;
-    if (ratio < 0.25) setDropZone("above");
-    else if (ratio > 0.75) setDropZone("below");
-    else setDropZone("child");
+    e.dataTransfer.dropEffect = "move";
+    if (!draggedId || draggedId === page.id) {
+      if (dropZone) setDropZone(null);
+      return;
+    }
+    const zone = getZone(e);
+    if (zone !== dropZone) setDropZone(zone);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // ignore leave events caused by moving over this row's own children
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    setDropZone(null);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const zone = dropZone;
+    const zone = getZone(e);
+    const dragged = draggedId;
     setDropZone(null);
-    if (!draggedId || draggedId === page.id) return;
+    setDraggedId(null);
+    if (!dragged || dragged === page.id) return;
 
     if (zone === "child") {
-      if (isDescendant(pages, draggedId, page.id)) return;
-      const siblingCount = pages.filter((p) => p.parent_id === page.id).length;
-      movePage(draggedId, page.id, siblingCount);
-      setDraggedId(null);
+      if (isDescendant(pages, dragged, page.id)) return;
+      const count = pages.filter((p) => p.parent_id === page.id && p.id !== dragged).length;
+      movePage(dragged, page.id, count);
+      expand(page.id);
       return;
     }
 
     const newParentId = page.parent_id;
-    if (newParentId === draggedId) return;
-    if (newParentId && isDescendant(pages, draggedId, newParentId)) return;
+    if (newParentId === dragged) return;
+    if (newParentId && isDescendant(pages, dragged, newParentId)) return;
 
     const siblings = pages
-      .filter((p) => p.parent_id === newParentId && p.id !== draggedId)
+      .filter((p) => p.parent_id === newParentId && p.id !== dragged)
       .sort((a, b) => a.position - b.position);
     const targetIndex = siblings.findIndex((s) => s.id === page.id);
-    const newPosition = zone === "above" ? targetIndex : targetIndex + 1;
-
-    movePage(draggedId, newParentId, newPosition);
-    setDraggedId(null);
+    movePage(dragged, newParentId, zone === "above" ? targetIndex : targetIndex + 1);
   };
 
   return (
@@ -107,10 +141,18 @@ function SidebarItem({
           />
         )}
         <div
-          draggable
-          onDragStart={() => setDraggedId(page.id)}
+          draggable={!editing}
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", page.id); // required by Firefox
+            setDraggedId(page.id);
+          }}
+          onDragEnd={() => {
+            setDraggedId(null);
+            setDropZone(null);
+          }}
           onDragOver={handleDragOver}
-          onDragLeave={() => setDropZone(null)}
+          onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => onSelectPage(page.id)}
           onContextMenu={(e) => {
@@ -128,7 +170,7 @@ function SidebarItem({
           <span
             onClick={(e) => {
               e.stopPropagation();
-              setExpanded((v) => !v);
+              toggleCollapsed(page.id);
             }}
             className="w-4 h-4 flex items-center justify-center text-muted-foreground shrink-0"
           >
@@ -143,22 +185,20 @@ function SidebarItem({
               autoFocus
               value={titleInput}
               onChange={(e) => setTitleInput(e.target.value)}
-              onBlur={commitTitle}
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={() => finishEditing(true)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") commitTitle();
-                if (e.key === "Escape") {
-                  setTitleInput(page.title);
-                  setEditing(false);
-                }
+                if (e.key === "Enter") finishEditing(true);
+                if (e.key === "Escape") finishEditing(false);
               }}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 text-sm bg-background border border-input rounded px-1 py-0 outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex-1 min-w-0 text-sm bg-background border border-input rounded px-1 py-0 outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           ) : (
             <span
               onDoubleClick={(e) => {
                 e.stopPropagation();
-                setEditing(true);
+                setRenamingId(page.id);
               }}
               className="flex-1 truncate text-foreground/90"
             >
@@ -167,9 +207,11 @@ function SidebarItem({
           )}
 
           <button
-            onClick={(e) => {
+            onClick={async (e) => {
               e.stopPropagation();
-              createPage(page.id);
+              expand(page.id);
+              const id = (await createPage(page.id)) as string | undefined;
+              if (id) onSelectPage(id);
             }}
             title="Add sub-page"
             className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity shrink-0"
@@ -196,16 +238,22 @@ function SidebarItem({
             onSelectPage={onSelectPage}
             createPage={createPage}
             renamePage={renamePage}
-            updateIcon={updateIcon}
             movePage={movePage}
             draggedId={draggedId}
             setDraggedId={setDraggedId}
             onContextMenu={onContextMenu}
+            collapsedIds={collapsedIds}
+            toggleCollapsed={toggleCollapsed}
+            expand={expand}
+            renamingId={renamingId}
+            setRenamingId={setRenamingId}
           />
         ))}
     </div>
   );
 }
+
+const COLLAPSE_KEY = "motion.collapsed";
 
 export default function Sidebar({
   pages,
@@ -213,39 +261,110 @@ export default function Sidebar({
   onSelectPage,
   createPage,
   renamePage,
-  updateIcon,
   movePage,
   deletePage,
 }: {
   pages: Page[];
   selectedPageId: string | null;
   onSelectPage: (id: string) => void;
-  createPage: (parentId: string | null) => void;
+  createPage: CreatePage;
   renamePage: (id: string, title: string) => void;
-  updateIcon: (id: string, icon: string) => void;
+  updateIcon?: (id: string, icon: string) => void;
   movePage: (id: string, newParentId: string | null, newPosition: number) => void;
   deletePage: (id: string) => void;
 }) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pageId: string } | null>(null);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const rootPages = pages.filter((p) => !p.parent_id).sort((a, b) => a.position - b.position);
   const results = useMemo(() => searchPages(pages, query), [pages, query]);
   const isSearching = query.trim().length > 0;
 
+  // Collapsed state persists across reloads
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLLAPSE_KEY);
+      if (raw) setCollapsedIds(new Set(JSON.parse(raw)));
+    } catch {}
+  }, []);
+
+  const updateCollapsed = (fn: (s: Set<string>) => Set<string>) =>
+    setCollapsedIds((prev) => {
+      const next = fn(prev);
+      if (next === prev) return prev;
+      try {
+        localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+
+  const toggleCollapsed = (id: string) =>
+    updateCollapsed((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const expand = (id: string) =>
+    updateCollapsed((s) => {
+      if (!s.has(id)) return s;
+      const n = new Set(s);
+      n.delete(id);
+      return n;
+    });
+
+  // Opening a nested page (search, breadcrumb, new sub-page) reveals it in the tree
+  useEffect(() => {
+    if (!selectedPageId) return;
+    const ancestors: string[] = [];
+    const seen = new Set<string>();
+    let cur = pages.find((p) => p.id === selectedPageId);
+    while (cur && cur.parent_id && !seen.has(cur.parent_id)) {
+      const pid: string = cur.parent_id;
+      seen.add(pid);
+      ancestors.push(pid);
+      cur = pages.find((p) => p.id === pid);
+    }
+    if (ancestors.length) {
+      updateCollapsed((s) => {
+        if (!ancestors.some((a) => s.has(a))) return s;
+        const n = new Set(s);
+        ancestors.forEach((a) => n.delete(a));
+        return n;
+      });
+    }
+  }, [selectedPageId, pages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!contextMenu) return;
-    const closeMenu = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setContextMenu(null);
+    const close = () => setContextMenu(null);
+    const onMouseDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) close();
     };
-    document.addEventListener("mousedown", closeMenu);
-    document.addEventListener("scroll", () => setContextMenu(null), true);
-    return () => document.removeEventListener("mousedown", closeMenu);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("scroll", close, true);
+    };
   }, [contextMenu]);
 
   const contextPage = contextMenu ? pages.find((p) => p.id === contextMenu.pageId) : null;
+
+  const addRootPage = async () => {
+    const id = (await createPage(null)) as string | undefined;
+    if (id) onSelectPage(id);
+  };
 
   return (
     <div className="w-64 h-full border-r bg-muted/30 flex flex-col relative">
@@ -266,7 +385,7 @@ export default function Sidebar({
           variant="ghost"
           size="icon"
           className="h-5 w-5 text-muted-foreground hover:text-foreground"
-          onClick={() => createPage(null)}
+          onClick={addRootPage}
           title="Add page"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -300,13 +419,15 @@ export default function Sidebar({
           </div>
         ) : (
           <div
+            className="min-h-full pb-8"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
-              if (draggedId) {
-                const siblingCount = pages.filter((p) => !p.parent_id).length;
-                movePage(draggedId, null, siblingCount);
-                setDraggedId(null);
+              const dragged = draggedId;
+              setDraggedId(null);
+              if (dragged) {
+                const count = pages.filter((p) => !p.parent_id && p.id !== dragged).length;
+                movePage(dragged, null, count);
               }
             }}
           >
@@ -320,11 +441,15 @@ export default function Sidebar({
                 onSelectPage={onSelectPage}
                 createPage={createPage}
                 renamePage={renamePage}
-                updateIcon={updateIcon}
                 movePage={movePage}
                 draggedId={draggedId}
                 setDraggedId={setDraggedId}
                 onContextMenu={(e, pageId) => setContextMenu({ x: e.clientX, y: e.clientY, pageId })}
+                collapsedIds={collapsedIds}
+                toggleCollapsed={toggleCollapsed}
+                expand={expand}
+                renamingId={renamingId}
+                setRenamingId={setRenamingId}
               />
             ))}
           </div>
@@ -334,11 +459,17 @@ export default function Sidebar({
       {contextMenu && contextPage && (
         <div
           ref={menuRef}
-          style={{ top: contextMenu.y, left: contextMenu.x }}
+          style={{
+            top: Math.min(contextMenu.y, window.innerHeight - 90),
+            left: Math.min(contextMenu.x, window.innerWidth - 180),
+          }}
           className="fixed bg-popover border rounded-lg shadow-md p-1 z-[1000] min-w-[160px]"
         >
           <div
-            onClick={() => setContextMenu(null)}
+            onClick={() => {
+              setRenamingId(contextPage.id);
+              setContextMenu(null);
+            }}
             className="px-2.5 py-1.5 text-sm rounded-md cursor-pointer text-foreground hover:bg-muted"
           >
             Rename

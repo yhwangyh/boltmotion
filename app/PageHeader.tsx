@@ -64,7 +64,7 @@ function BreadcrumbDropdown({
         </div>
       )}
 
-      {siblings.length === 0 && (
+      {siblings.length <= 1 && (
         <div className="px-2 py-1.5 text-sm text-muted-foreground">No other pages here.</div>
       )}
     </div>
@@ -94,11 +94,18 @@ export default function PageHeader({
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [openCrumbId, setOpenCrumbId] = useState<string | null>(null);
   const crumbsRef = useRef<HTMLDivElement | null>(null);
+  const doneRef = useRef(false);
 
   useEffect(() => {
+    doneRef.current = false;
     setTitleInput(page?.title || "");
     setEditingTitle(!!page && (!page.title || page.title === "Untitled"));
-  }, [pageId]);
+  }, [pageId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Follow renames made elsewhere (e.g. in the sidebar)
+  useEffect(() => {
+    if (!editingTitle) setTitleInput(page?.title || "");
+  }, [page?.title, editingTitle]);
 
   useEffect(() => {
     if (!openCrumbId) return;
@@ -112,6 +119,8 @@ export default function PageHeader({
   if (!page) return null;
 
   const commitTitle = () => {
+    if (doneRef.current) return;
+    doneRef.current = true;
     setEditingTitle(false);
     const trimmed = titleInput.trim() || "Untitled";
     if (trimmed !== page.title) renamePage(page.id, trimmed);
@@ -124,7 +133,7 @@ export default function PageHeader({
           <span key={p.id} className="flex items-center gap-1 relative">
             <span
               onClick={() => setOpenCrumbId((current) => (current === p.id ? null : p.id))}
-              className={`px-1.5 py-0.5 rounded-md cursor-pointer hover:bg-muted/60 ${
+              className={`px-1.5 py-0.5 rounded-md cursor-pointer hover:bg-muted/60 max-w-[180px] truncate ${
                 i === path.length - 1 ? "text-foreground font-medium" : "text-muted-foreground"
               } ${openCrumbId === p.id ? "bg-muted" : ""}`}
             >
@@ -169,6 +178,7 @@ export default function PageHeader({
             onKeyDown={(e) => {
               if (e.key === "Enter") commitTitle();
               if (e.key === "Escape") {
+                doneRef.current = true;
                 setTitleInput(page.title);
                 setEditingTitle(false);
               }
@@ -178,6 +188,7 @@ export default function PageHeader({
         ) : (
           <h1
             onClick={() => {
+              doneRef.current = false;
               setTitleInput(page.title);
               setEditingTitle(true);
             }}
